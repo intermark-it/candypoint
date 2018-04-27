@@ -28,23 +28,108 @@
 #include "RDM6300.h"
 #include <ArduinoJson.h>
 
-SoftwareSerial rdm_serial(2, 3);
-RDM6300<SoftwareSerial> rdm(&rdm_serial);
-Servo servo;
-
-#define REQUIRED_POINTS 5
-#define PRETTYPRINT true
-
 // Sensors pins
 #define BUTTON 8
 #define RED_LED 4
 #define GREEN_LED 5
 #define SERVO 10
+#define RFID_RX 2
+#define RFID_TX 3
 
-bool locked;
+SoftwareSerial rdm_serial(RFID_RX, RFID_TX);
+RDM6300<SoftwareSerial> rdm(&rdm_serial);
+
+// Minimum points required to unlock the door
+#define REQUIRED_POINTS 5
+
+// Struct that stores request info
+struct Request {
+  String rfid;
+};
+
+// Struct that stores response info
+struct Response {
+  String rfid;
+  int points;
+  int pin;  
+};
+
+// Variables
+String rfid = ""; // The last RFID identifier readed
+bool waiting = true; // Bool variable to control when read a new RFID
+bool buttonPressed = true; // Bool variable to control when button is pressed
+bool locked = true; // Bool variable to check is door is closed or open
+
+// Functions
+void blinkLed(int pin, int n = 1);
+String readRFID();
+String parseData(unsigned long long data);
+void unlock();
+void lock();
+void sendStatus(String status);
+void sendRequest(struct Request *request);
+struct Response getResponse();
+
+// Arduino functions ---------------------------------------------------------
+void setup() {
+  Serial.begin(9600);
+  while (!Serial) continue;
+  // Send init status
+  sendStatus("init");
+  // Init leds and button
+  pinMode(RED_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(BUTTON, INPUT);
+  // Lock the door (servo)
+  lock();
+  // Send ready status
+  sendStatus("ready");
+}
+
+void loop() {
+  if (waiting) { // Wait for new rfid
+    // Send waiting status
+    sendStatus("waiting");
+    // Read RFID from the card reader
+    rfid = readRFID();
+    // Send RFID obtained to Raspberry
+    Request request;
+    request.rfid = rfid;
+    sendRequest(&request);
+    // Change waiting state to receive data from Raspberry
+    waiting = false;
+  } else { // Wait and check response from Raspberry
+    if (locked) { // Door is closed
+      while (Serial.available() == 0) {}
+      Response response = getResponse();
+      // Check that result rfid is same that last readed
+      if (response.rfid == rfid) {
+        if (response.pin > 0) { // Raspberry returns a pin code, it corresponding to new user
+          // TODO send pin code to display
+          waiting = true;
+        } else {
+          if (response.points > REQUIRED_POINTS) { // Raspberry response is ok, unlock the door
+            unlock();
+          } else
+            waiting = true;
+        }
+      } else
+        waiting = true;
+    } else { // Door is open
+      // Check if door is open and button pressed, then lock de door and prepare for a new rfid
+      buttonPressed = (digitalRead(BUTTON) == LOW);
+      if (buttonPressed) {
+        lock();
+        waiting = true;
+      }      
+    }
+  }
+}
+
+// Internal functions ---------------------------------------------------------
 
 // Blink led "n" times
-void blink(int pin, int n = 1) {
+void blinkLed(int pin, int n = 1) {
   for(int i = 0; i < n; i++) {
     digitalWrite(pin, HIGH);
     delay(200);
@@ -53,8 +138,19 @@ void blink(int pin, int n = 1) {
   }
 }
 
+// Read RFID from the card reader
+String readRFID() {
+  String rfid = "";
+  // The "read" method loop until a new rfid is ready
+  unsigned long previousMillis = millis();
+  do {
+    rfid = parseData(rdm.read());
+  } while ((millis() - previousMillis) <= 2000);
+  return rfid;
+}
+
 // Convert long to hexadecima string
-String parse_data(unsigned long long data) {
+String parseData(unsigned long long data) {
   union {
     unsigned long long ull;
     unsigned long ul[2];
@@ -73,124 +169,68 @@ String parse_data(unsigned long long data) {
   return output;
 }
 
-// Unlock door
+// Unlock door (servo)
 void unlock() {
+  Servo servo;
+  servo.attach(SERVO);
   servo.write(180);
   digitalWrite(RED_LED, LOW);
-  blink(GREEN_LED, 3);
+  blinkLed(GREEN_LED, 3);
   digitalWrite(GREEN_LED, HIGH);
+  servo.detach();
   locked = false;
 }
 
-// Lock door
+// Lock door (servo)
 void lock() {
+  Servo servo;
+  servo.attach(SERVO);
   servo.write(0);  
   digitalWrite(GREEN_LED, LOW);
-  blink(RED_LED, 3);
+  blinkLed(RED_LED, 3);
   digitalWrite(RED_LED, HIGH);
+  servo.detach();
   locked = true;
-}
-
-// Return true if door is open
-bool isOpen() {
-  return (locked == false);
-}
-
-// Return tru if door is closed
-bool isClosed() {
-  return (locked == true);
 }
 
 // Send Arduino status to Raspberry
 void sendStatus(String status) {
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
+  String jsonStatus = "";
   root["type"] = "status";
   root["code"] = status;
-  if (PRETTYPRINT)
-    root.prettyPrintTo(Serial);  
-  else
-    root.printTo(Serial);  
+  root.printTo(jsonStatus);
+  Serial.println(jsonStatus);    
   delay(100);
 }
 
-// Send request to Raspberry with RFID readed
-void sendRequest(String rfid) {
+// Send request to Raspberry
+void sendRequest(struct Request *request) {
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
+  String jsonRequest = "";
   root["type"] = "request";
   JsonObject& params = root.createNestedObject("params");
-  params["rfid"] = rfid;
-  if (PRETTYPRINT)
-    root.prettyPrintTo(Serial);  
-  else
-    root.printTo(Serial);  
+  params["rfid"] = request->rfid;
+  root.printTo(jsonRequest);  
+  Serial.println(jsonRequest);    
   delay(100);
 }
 
-void setup() {
-  Serial.begin(9600);
-  while (!Serial) continue;
-  // Send init state
-  sendStatus("init");
-  // Init servo, leds and button
-  servo.attach(SERVO);
-  pinMode(RED_LED, OUTPUT);
-  pinMode(GREEN_LED, OUTPUT);
-  pinMode(BUTTON, INPUT);
-  // Lock the door
-  lock();
-  // Send ready state
-  sendStatus("ready");
-}
-
-void loop() {
-  static unsigned long long data = 0;
-  static String rfid = "";
-  static bool waiting_rfid = true;
-  static bool buttonPressed = false;
-
-  // Wait for new RFID
-  if (waiting_rfid) {
-    // Send waiting state
-    sendStatus("waiting");
-    // The "read" method loop until a new RFID is ready
-    data = rdm.read();
-    // Convert to hexadecimal string identifier
-    rfid = parse_data(data);
-    // Send RFID obtained
-    sendRequest(rfid);
-    // Change waiting state to receive data from Raspberry
-    waiting_rfid = false;
-  } else {
-    if (isClosed() && (Serial.available() > 0)) {
-      DynamicJsonBuffer jsonBuffer;
-      JsonObject& root = jsonBuffer.parseObject(Serial);
-      // It's a json object
-      if (root.success()) {
-        String type = root["type"];
-        if (type == "response") {
-          String rfid = root["result"]["rfid"];
-          int pin = root["result"]["pin"];
-          int points = root["result"]["points"];
-          if (pin > 0) { // Raspberry returns a pin code, it's a RFID corresponding to new user
-            //TODO send pin code to display
-          } else {
-            if (points > REQUIRED_POINTS) { // Raspberry response is OK, unlock the door and blink green led to notify user
-              unlock();
-            }
-          }
-        }
-      }
-    } else {
-      // Check if door is open and button pressed, then lock de door and prepare for a new rfid
-      buttonPressed = (digitalRead(BUTTON) == LOW);
-      if (buttonPressed && isOpen()) {
-        waiting_rfid = true;
-        lock(); 
-        delay(1000);
-      }      
+// Get response from Raspberry
+struct Response getResponse() {
+  Response response;
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.parseObject(Serial);
+  // It's a json object
+  if (root.success()) {
+    if (root["type"] == "response") {
+      response.rfid = root["result"]["rfid"].as<String>();
+      response.points = root["result"]["points"].as<int>();
+      response.pin = root["result"]["pin"].as<int>();
     }
   }
+  return response;
 }
 
