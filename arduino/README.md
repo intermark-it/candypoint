@@ -13,7 +13,21 @@ To ensure a correct use of the script you must install the following Arduino lib
 - ArduinoJson (https://github.com/bblanchon/ArduinoJson)
 - SSD1306Ascii (https://github.com/greiman/SSD1306Ascii)
 
-## The Script
+## Connection diagrams
+
+Detail of connections in Arduino BQ (Freaduino UNO)
+
+![Freaduino Connections](freaduino-connections.png)
+
+RDM6300 RFID reader connection
+
+![RFID RDM6300 Connection](rfid-rdm6300-connection.png)
+
+Connection of the OLED screen 0.96 I2C SPI CII 128x64
+
+![OLED Display Connection](oled-display-connection.jpg)
+
+## The Script (.ino)
 
 This program wait for a RFID token, then send to Raspberry PI via Serial and if the user associated with this RFID has sufficient points, moves servo to unlock a door.
 Upon the door is closed, which is detected when button is pressed, turns a LED on.

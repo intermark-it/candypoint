@@ -7,6 +7,12 @@ The candy point machine, a project created by enthusiastic developers.
 Project for the creation of a candy box (candy point) where users use an RFID card to open the box and get their prize based on their available points.
 To assemble this project the following elements are necessary.
 
+## Overview
+
+This is the architecture diagram of the project:
+
+![Candy Point Architecture](architecture.png)
+
 ## Hardware
 
 - Arduino UNO (we have used a Freaduino UNO from BQ)
