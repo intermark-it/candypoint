@@ -10,11 +10,11 @@
   There are these types of messages:
 
   {"type":"status","code":"init"} // Inform the raspberry that the arduino is initializing
-  {"type":"status","code":"ready"} // Inform the raspberry that the arduino is ready
+  {"type":"status","code":"ready"} // Inform the raspberry that the arduino is ready to read a new RFID
   {"type":"status","code":"waiting"} // Inform the raspberry that the arduino is waiting for a response
   {"type":"request","params":{ "rfid": "0x0000000000"}} // Send a request to raspberry to obtain info about a RFID
-  {"type":"response","result":{ "rfid": "0x0000000000", "points": 100}} // Response received from raspberry with points associated to a RFID
-  {"type":"response","result":{ "rfid": "0x0000000000", "pin": 1234}} // Response received from raspberry with pin associated to a RFID
+  {"type":"response","result":{ "rfid": "0x0000000000", "points": 100, "openVault": true|false, "active": true|false, "message": "Message to display"}} // Response received from raspberry with points associated to a RFID
+  {"type":"response","result":{ "rfid": "0x0000000000", "pin": 1234, "openVault": true|false, "active": true|false, "message": "Message to display"}} // Response received from raspberry with pin associated to a RFID
 
   Created 22 Apr 2018
   by Intermark IT
@@ -58,7 +58,10 @@ struct Request {
 struct Response {
   String rfid;
   int points;
-  int pin;  
+  int pin;
+  bool openVault;
+  String message;
+  bool active;
 } response;
 
 // Variables
@@ -67,17 +70,16 @@ bool locked = true; // Bool variable to check is door is closed or open
 
 // Functions
 void initDisplay();
-void blinkLed(int pin, int n = 1);
 String readRFID();
 String parseData(unsigned long long data);
-void unlock();
-void lock();
 void sendStatus(String status);
 void sendRequest(struct Request *request);
 struct Response getResponse();
+void showResponse(struct Response *response);
 void waitForLock();
-void showPin(String pin);
-void showPointsAndUnlock(String points);
+void unlock();
+void lock();
+void blinkLed(int pin, int n = 1);
 void displayText(String header, String body);
 void displayScrollText(String text, bool endDelay);
 
@@ -103,27 +105,16 @@ void loop() {
     sendStatus("ready");
     // Read RFID from the card reader
     request.rfid = readRFID();
+    // Send waiting status
+    sendStatus("waiting");
     // Send RFID obtained to Raspberry
     sendRequest(&request);
-    // Change ready state to receive data from Raspberry
-    ready = false;
   } else { // Wait and check response from Raspberry
     if (locked) {
-      // Send waiting status
-      sendStatus("waiting");
       // Get response from Raspberry
       response = getResponse(&request);
-      // Check that response is valid (RFID is not empty)
-      if (response.rfid != "") {
-        if (response.pin > 0) { // Raspberry returns a pin code, it corresponding to a new user
-          showPin(response.pin);
-        } else { // Raspberry return points, check if sufficient to unlock the door
-          showPointsAndUnlock(response.points);
-          return;
-        }
-      }
-      // Change ready state to read a new RFID from Arduino
-      ready = true;
+      // Show response and unlock the door, display insufficient points or display pin code if user not registered
+      showResponse(&response);
     } else {
       // Check if button is pressed (close the door and change to ready status)
       waitForLock();
@@ -140,16 +131,6 @@ void initDisplay() {
   #else // RST_PIN >= 0
     oled.begin(&Adafruit128x64, I2C_ADDRESS);
   #endif // RST_PIN >= 0
-}
-
-// Blink led "n" times
-void blinkLed(int pin, int n = 1) {
-  for(int i = 0; i < n; i++) {
-    digitalWrite(pin, HIGH);
-    delay(200);
-    digitalWrite(pin, LOW);
-    delay(200);
-  }
 }
 
 // Read RFID from the card reader
@@ -183,32 +164,6 @@ String parseData(unsigned long long data) {
   return output;
 }
 
-// Unlock door (servo)
-void unlock() {
-  Servo servo;
-  servo.attach(SERVO);
-  servo.write(180);
-  digitalWrite(RED_LED, LOW);
-  blinkLed(GREEN_LED, 3);
-  digitalWrite(GREEN_LED, HIGH);
-  servo.detach();
-  ready = false;
-  locked = false;
-}
-
-// Lock door (servo)
-void lock() {
-  Servo servo;
-  servo.attach(SERVO);
-  servo.write(0);  
-  digitalWrite(GREEN_LED, LOW);
-  blinkLed(RED_LED, 3);
-  digitalWrite(RED_LED, HIGH);
-  servo.detach();
-  ready = true;
-  locked = true;
-}
-
 // Send Arduino status to Raspberry
 void sendStatus(String status) {
   DynamicJsonBuffer jsonBuffer;
@@ -235,6 +190,8 @@ void sendRequest(struct Request *request) {
   root.printTo(jsonRequest);  
   Serial.println(jsonRequest);    
   delay(100);
+  // Change ready state to receive data from Raspberry
+  ready = false;
 }
 
 // Get response from Raspberry
@@ -246,6 +203,9 @@ struct Response getResponse(struct Request *request) {
   response.rfid = "";
   response.points = 0;
   response.pin = 0;
+  response.openVault = false;
+  response.message = "";
+  response.active = false;
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(Serial);
   // It's a json object
@@ -255,10 +215,41 @@ struct Response getResponse(struct Request *request) {
         response.rfid = root["result"]["rfid"].as<String>();
         response.points = root["result"]["points"].as<int>();
         response.pin = root["result"]["pin"].as<int>();
+        response.openVault = root["result"]["openVault"].as<bool>();
+        response.message = root["result"]["message"].as<String>();
+        response.active = root["result"]["active"].as<bool>();
       }
     }
   }
   return response;
+}
+
+// Display points or pin code and lock/unlock the door
+void showResponse(struct Response *response) {
+  if (response->rfid != "") { 
+    // Response is valid
+    if (response->openVault) {
+      // Display remaining points in OLED display and unlock the door
+      unlock();
+      displayText("POINTS", String(response->points));
+      displayScrollText(response->message, true);
+    } else {
+      if (response->active) {
+        // Display insufficient points in OLED display and lock the door
+        lock();
+        displayScrollText(response->message, true);    
+      } else {
+        // Display pin code in OLED display
+        displayScrollText(response->message, false);
+        displayText("PIN", String(response->pin));  
+        // Change ready state to read a new RFID from Arduino
+        ready = true;
+      }
+    }
+  } else { 
+    // Change ready state to read a new RFID from Arduino
+    ready = true;
+  }
 }
 
 // If button is pressed, lock the door, and change status to ready for read a new RFID
@@ -270,21 +261,39 @@ void waitForLock() {
   }      
 }
 
-// Display pin code in OLED display
-void showPin(int pin) {
-  displayScrollText("Sorry, you are not registered, please register using the following PIN...", false);
-  displayText("PIN", String(pin));
+// Unlock door (servo)
+void unlock() {
+  Servo servo;
+  servo.attach(SERVO);
+  servo.write(180);
+  digitalWrite(RED_LED, LOW);
+  blinkLed(GREEN_LED, 3);
+  digitalWrite(GREEN_LED, HIGH);
+  servo.detach();
+  ready = false;
+  locked = false;
 }
 
-// Display remaining points in OLED display and unlock the door if has sufficient points
-void showPointsAndUnlock(int points) {
-  if (points > -1) { // User has sufficient points
-    unlock();
-    displayText("POINTS", String(points));
-    displayScrollText("Take your candy and...  ENJOY!!!", true);
-  } else { // User has insufficient points
-    lock();
-    displayScrollText("You don't have enough points...  SORRY!!!", true);
+// Lock door (servo)
+void lock() {
+  Servo servo;
+  servo.attach(SERVO);
+  servo.write(0);  
+  digitalWrite(GREEN_LED, LOW);
+  blinkLed(RED_LED, 3);
+  digitalWrite(RED_LED, HIGH);
+  servo.detach();
+  ready = true;
+  locked = true;
+}
+
+// Blink led "n" times
+void blinkLed(int pin, int n = 1) {
+  for(int i = 0; i < n; i++) {
+    digitalWrite(pin, HIGH);
+    delay(200);
+    digitalWrite(pin, LOW);
+    delay(200);
   }
 }
 
