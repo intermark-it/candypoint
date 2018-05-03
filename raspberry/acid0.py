@@ -9,10 +9,9 @@
   {"type":"status","code":"init"} // Inform the raspberry that the arduino is initializing
   {"type":"status","code":"ready"} // Inform the raspberry that the arduino is ready
   {"type":"status","code":"waiting"} // Inform the raspberry that the arduino is waiting for a new RFID
-  {"type":"request","params":{ "rfid": "0x0000000000"}} // Request received from Arduino to obtain info about a RFID
-  
-  {"type":"response","result":{ "rfid": "0x0000000000", "points": 100}} // Response sent to Arduino with points associated to a RFID
-  {"type":"response","result":{ "rfid": "0x0000000000", "pin": 1234}} // Response sent to Arduino with pin associated to a RFID
+  {"type":"request","params":{ "rfid": "0x0000000000"}} // Send a request to raspberry to obtain info about a RFID
+  {"type":"response","result":{ "rfid": "0x0000000000", "points": 100, "openVault": true/false, "active": true/false, "message": text}} // Response received from raspberry with points associated to a RFID
+  {"type":"response","result":{ "rfid": "0x0000000000", "pin": 1234, "openVault": true/false, "active": true/false, "message": text}} // Response received from raspberry with pin associated to a RFID
 
   Created 25 Apr 2018
   by Intermark IT
@@ -23,10 +22,9 @@ import serial
 import json
 
 ser = serial.Serial('/dev/ttyACM0', 9600)
-#ser.close()
 
 #Service URL
-url = 'https://candy-vault.appspot.com/_ah/api/candy/v1/getUserByRfid'
+url = 'https://candy-vault.appspot.com/_ah/api/candy/v1/user/validate'
 #Infinite raspberry waiting loop
 while 1 :
    worker = ser.readline()
@@ -46,32 +44,28 @@ while 1 :
          params = request['params']
          print("RFID code: " + params['rfid'])
 
-         # GET with JSON 
-         r = requests.get(url + "/" + params['rfid'])
+         # POST with JSON 
+         r = requests.post(url + "/" + params['rfid'])
 
          # Response, status etc
          response = {}
          response['type'] = 'response'
          result = {}
          result['rfid'] = params['rfid']
-
          data = json.loads(r.text)
-         if 'items' in data:
-            items = data['items'][0]
-            active = items['active']
-			#check if the user is active
+         if data:
+            result['message'] = data['message']
+            result['openVault'] = data['openVault']
+            result['active'] = data['active']
+            active = data['active']
             if active:
-               points = items['points']
                #prepare response result with points
-               result['points'] = items['points']
-               print("You have "+items['points']+" points")
+               result['points'] = data['points']
+               print("You have "+data['points']+" points")
             else:
                #prepare response result with pin
-               result['pin'] = items['pin']
-               print("Here is your PIN CODE: "+items['pin'])
-		 else:
-			print("No element ITEMS received from service")
-
+               result['pin'] = data['pin']
+               print("Here is your PIN CODE: "+data['pin'])
          #Set the response result and send to arduino
          response['result'] = result
          ser.write(json.dumps(response))
