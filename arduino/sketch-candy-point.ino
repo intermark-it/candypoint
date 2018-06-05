@@ -4,7 +4,7 @@
   -----------
 
   This program wait for a RFID token, then send to Raspberry PI via Serial and if the user associated with this RFID has sufficient points, moves servo to unlock a door.
-  Upon the door is closed, which is detected when button is pressed, turns a LED on.
+  Upon the door is closed, which is detected whith a light sensor, turns a LED on.
 
   Data is exchanged in JSON format.
   There are these types of messages:
@@ -31,12 +31,12 @@
 #include "SSD1306AsciiAvrI2c.h"
 
 // Sensors pins
-#define BUTTON 8
-#define RED_LED 4
-#define GREEN_LED 5
+#define LOCKED_LED 4
+#define UNLOCKED_LED 5
 #define SERVO 10
 #define RFID_RX 2
 #define RFID_TX 3
+#define PHOTOCELL A1
 
 // RDIF reader
 SoftwareSerial rdm_serial(RFID_RX, RFID_TX);
@@ -68,6 +68,9 @@ struct Response {
 bool ready = true; // Bool variable to control when read a new RFID
 bool locked = true; // Bool variable to check is door is closed or open
 
+// Constants 
+const int PHOTOCELL_LEVEL = 80; // Threshold of light below which the servo motor must be operated
+
 // Functions
 void initDisplay();
 String readRFID();
@@ -85,16 +88,16 @@ void displayScrollText(String text, bool endDelay);
 
 // Arduino functions ---------------------------------------------------------
 void setup() {
-  Serial.begin(9600);
-  while (!Serial) continue;
   // Initialize OLED display
   initDisplay();
   // Send init status
   sendStatus("init");
-  // Init leds and button
-  pinMode(RED_LED, OUTPUT);
-  pinMode(GREEN_LED, OUTPUT);
-  pinMode(BUTTON, INPUT);
+  // Init serial communication
+  Serial.begin(9600);
+  while (!Serial) continue;
+  // Init leds
+  pinMode(LOCKED_LED, OUTPUT);
+  pinMode(UNLOCKED_LED, OUTPUT);
   // Lock the door (servo)
   lock();
 }
@@ -116,7 +119,7 @@ void loop() {
       // Show response and unlock the door, display insufficient points or display pin code if user not registered
       showResponse(&response);
     } else {
-      // Check if button is pressed (close the door and change to ready status)
+      // Check if the light sensor does not pick up enough light (close the door and change to ready status)
       waitForLock();
     }
   }
@@ -252,13 +255,12 @@ void showResponse(struct Response *response) {
   }
 }
 
-// If button is pressed, lock the door, and change status to ready for read a new RFID
+// If the light sensor does not pick up enough light, lock the door, and change status to ready for read a new RFID
 void waitForLock() {
-  static bool buttonPressed = true;
-  buttonPressed = (digitalRead(BUTTON) == LOW);
-  if (buttonPressed) {
-    lock();
-  }      
+  int photocellReading = analogRead(PHOTOCELL);
+  if (photocellReading < PHOTOCELL_LEVEL) {
+    lock(); 
+  }
 }
 
 // Unlock door (servo)
@@ -266,9 +268,9 @@ void unlock() {
   Servo servo;
   servo.attach(SERVO);
   servo.write(180);
-  digitalWrite(RED_LED, LOW);
-  blinkLed(GREEN_LED, 3);
-  digitalWrite(GREEN_LED, HIGH);
+  digitalWrite(LOCKED_LED, LOW);
+  blinkLed(UNLOCKED_LED, 3);
+  digitalWrite(UNLOCKED_LED, HIGH);
   servo.detach();
   ready = false;
   locked = false;
@@ -279,9 +281,9 @@ void lock() {
   Servo servo;
   servo.attach(SERVO);
   servo.write(0);  
-  digitalWrite(GREEN_LED, LOW);
-  blinkLed(RED_LED, 3);
-  digitalWrite(RED_LED, HIGH);
+  digitalWrite(UNLOCKED_LED, LOW);
+  blinkLed(LOCKED_LED, 3);
+  digitalWrite(LOCKED_LED, HIGH);
   servo.detach();
   ready = true;
   locked = true;
@@ -308,7 +310,6 @@ void displayText(String header, String body) {
   oled.set2X();
   oled.setCursor(oled.displayWidth()/2 - body.length()*12/2, oled.displayHeight()/2);
   oled.println(body);
-  delay(3000);
 }
 
 // Display scrolling text in OLED display
@@ -336,4 +337,3 @@ void displayScrollText(String text, bool endDelay) {
   if (endDelay) // After scroll, delay 3 seconds
     delay(3000);
 }
-
