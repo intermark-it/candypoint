@@ -69,7 +69,7 @@ bool ready = true; // Bool variable to control when read a new RFID
 bool locked = true; // Bool variable to check is door is closed or open
 
 // Constants 
-const int PHOTOCELL_LEVEL = 80; // Threshold of light below which the servo motor must be operated
+const int PHOTOCELL_LEVEL = 40; // Threshold of light below which the servo motor must be operated
 
 // Functions
 void initDisplay();
@@ -88,13 +88,13 @@ void displayScrollText(String text, bool endDelay);
 
 // Arduino functions ---------------------------------------------------------
 void setup() {
+  // Init serial communication
+  Serial.begin(9600);
+  while (!Serial) continue;
   // Initialize OLED display
   initDisplay();
   // Send init status
   sendStatus("init");
-  // Init serial communication
-  Serial.begin(9600);
-  while (!Serial) continue;
   // Init leds
   pinMode(LOCKED_LED, OUTPUT);
   pinMode(UNLOCKED_LED, OUTPUT);
@@ -143,7 +143,7 @@ String readRFID() {
   unsigned long previousMillis = millis();
   do {
     rfid = parseData(rdm.read());
-  } while ((millis() - previousMillis) <= 1000);
+  } while ((millis() - previousMillis) <= 2000);
   return rfid;
 }
 
