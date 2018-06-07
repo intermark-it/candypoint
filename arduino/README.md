@@ -30,15 +30,21 @@ Connection of the OLED screen 0.96 I2C SPI CII 128x64
 ## The Script (.ino)
 
 This program wait for a RFID token, then send to Raspberry PI via Serial and if the user associated with this RFID has sufficient points, moves servo to unlock a door.
-Upon the door is closed, which is detected when button is pressed, turns a LED on.
+Upon the door is closed, which is detected with a light sensor, turns a LED on.
 
 Data is exchanged in JSON format.
 
 There are these types of messages:
+
 {"type":"status","code":"init"} // Inform the raspberry that the arduino is initializing
-{"type":"status","code":"ready"} // Inform the raspberry that the arduino is ready
+
+{"type":"status","code":"ready"} // Inform the raspberry that the arduino is ready to read a new RFID
+
 {"type":"status","code":"waiting"} // Inform the raspberry that the arduino is waiting for a response
+
 {"type":"request","params":{ "rfid": "0x0000000000"}} // Send a request to raspberry to obtain info about a RFID
-{"type":"response","result":{ "rfid": "0x0000000000", "points": 100}} // Response received from raspberry with points associated to a RFID
-{"type":"response","result":{ "rfid": "0x0000000000", "pin": 1234}} // Response received from raspberry with pin associated to a RFID
+
+{"type":"response","result":{ "rfid": "0x0000000000", "points": 100, "openVault": true|false, "active": true|false, "message": "Message to display"}} // Response received from raspberry with points associated to a RFID
+
+{"type":"response","result":{ "rfid": "0x0000000000", "pin": 1234, "openVault": true|false, "active": true|false, "message": "Message to display"}} // Response received from raspberry with pin associated to a RFID
 
