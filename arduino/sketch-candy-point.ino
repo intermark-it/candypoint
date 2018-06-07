@@ -245,6 +245,8 @@ void showResponse(struct Response *response) {
         // Display pin code in OLED display
         displayScrollText(response->message, false);
         displayText("PIN", String(response->pin));  
+        // Delay for the user to write down the PIN
+        delay(4000);  
         // Change ready state to read a new RFID from Arduino
         ready = true;
       }
