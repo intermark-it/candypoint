@@ -226,4 +226,3 @@ def UserPropertyToProto(prop, index):
   kwargs = GetKeywordArgs(prop, include_default=False)
   return messages.MessageField(UserMessage, index, **kwargs)
 NDB_PROPERTY_TO_PROTO[ndb.UserProperty] = UserPropertyToProto
-

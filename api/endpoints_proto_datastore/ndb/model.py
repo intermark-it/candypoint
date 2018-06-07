@@ -1607,4 +1607,3 @@ class EndpointsModel(ndb.Model):
     return RequestToQueryDecorator
 # Update base class global so EndpointsMetaModel can check subclasses against it
 BASE_MODEL_CLASS = EndpointsModel
-
