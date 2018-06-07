@@ -556,3 +556,4 @@ class EndpointsComputedProperty(ndb.ComputedProperty):
     halting code, hence this will simply do nothing.
     """
     warnings.warn('Cannot assign to a ComputedProperty.', DeprecationWarning)
+
