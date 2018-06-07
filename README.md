@@ -18,7 +18,7 @@ This is the architecture diagram of the project:
 - Arduino UNO (we have used a Freaduino UNO from BQ)
 - Two leds
 - One servo
-- One button
+- One light sensor
 - A RFID reader (we have used a RDM6300 reader)
 - An OLED display (we have used a 0,96 inch I2C SPI CII 128x64 LCD OLED display)
 - Raspberry Pi 3

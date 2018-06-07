@@ -19,10 +19,16 @@ This program waits for a JSON object from Arduino, reads the JSON and extracts a
 Then it sends the RFID token to an API service and waits for a JSON wich tells Raspberry if the employee is active an has points to do an action OR if the employee is not active so it displays a PIN code in the screen.
 
 There are these types of messages:
-  {"type":"status","code":"init"} // Inform the raspberry that the arduino is initializing
-  {"type":"status","code":"ready"} // Inform the raspberry that the arduino is ready
-  {"type":"status","code":"waiting"} // Inform the raspberry that the arduino is waiting for a new RFID
-  {"type":"request","params":{ "rfid": "0x0000000000"}} // Request received from Arduino to obtain info about a RFID
-  
-  {"type":"response","result":{ "rfid": "0x0000000000", "points": 100}} // Response sent to Arduino with points associated to a RFID
-  {"type":"response","result":{ "rfid": "0x0000000000", "pin": 1234}} // Response sent to Arduino with pin associated to a RFID
+
+{"type":"status","code":"init"} // Inform the raspberry that the arduino is initializing
+
+{"type":"status","code":"ready"} // Inform the raspberry that the arduino is ready to read a new RFID
+
+{"type":"status","code":"waiting"} // Inform the raspberry that the arduino is waiting for a response
+
+{"type":"request","params":{ "rfid": "0x0000000000"}} // Send a request to raspberry to obtain info about a RFID
+
+{"type":"response","result":{ "rfid": "0x0000000000", "points": 100, "openVault": true|false, "active": true|false, "message": "Message to display"}} // Response received from raspberry with points associated to a RFID
+
+{"type":"response","result":{ "rfid": "0x0000000000", "pin": 1234, "openVault": true|false, "active": true|false, "message": "Message to display"}} // Response received from raspberry with pin associated to a RFID
+
