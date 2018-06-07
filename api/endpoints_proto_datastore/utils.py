@@ -449,4 +449,3 @@ class _EPDProtoJson(protojson.EndpointsProtoJson):
         message_type, msg_dictionary)
     result._Message__decoded_fields = msg_dictionary.keys()
     return result
-
