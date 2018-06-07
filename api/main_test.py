@@ -39,3 +39,4 @@ def test_get_user_email():
         user_mock.return_value.email.return_value = 'user@example.com'
         response = api.get_user_email(message_types.VoidMessage())
         assert 'user@example.com' == response.content
+
