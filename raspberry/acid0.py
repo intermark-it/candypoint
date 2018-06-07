@@ -2,7 +2,7 @@
   Candy Point
   -----------
   This program wait for a RFID token, then send to Raspberry PI via Serial and if the user associated with this RFID has sufficient points, moves servo to unlock a door.
-  Upon the door is closed, which is detected when button is pressed, turns a LED on.
+  Upon the door is closed, which is detected with a light sensor, turns a LED on.
   Data is exchanged in JSON format.
 
   There are these types of messages:
