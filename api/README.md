@@ -54,4 +54,3 @@ Then, deploy the sample using `gcloud`:
     $ gcloud app deploy
 
 Once deployed, you can access the application at https://your-service.appspot.com
-

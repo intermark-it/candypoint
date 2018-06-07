@@ -33,5 +33,3 @@ env_variables:
   ENDPOINTS_SERVICE_NAME: candy-vault.appspot.com
   ENDPOINTS_SERVICE_VERSION: 2018-04-18r5
  # [END env_vars]
-
- 
