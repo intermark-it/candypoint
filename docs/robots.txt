@@ -1,0 +1,6 @@
+User-agent: *
+
+Allow: *
+
+
+Sitemap: https://intermark-it.github.io/candypoint/sitemap.xml

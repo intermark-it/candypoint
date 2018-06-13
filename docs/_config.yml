@@ -1,0 +1,42 @@
+port: 4000
+host: 0.0.0.0
+
+# Build settings
+permalink: /:slug
+lang: es_ES
+timezone: null
+lsi: false
+markdown: kramdown
+highlighter: rouge
+
+# Content configuration
+title:       "The candy point machine for employees"
+keywords:    "electronic, arduino, raspberry, cloud, google, api, python"
+description: "A free and open source electronic lab for construct a candy box with Arduino, Raspberry Pi and Google Cloud Services."
+url: "https://intermark-it.github.io/candypoint/"
+author: acid0 (powered by Intermark IT)
+source_link: "https://github.com/intermark-it/candypoint/"
+favicon:     "img/favicon.ico"
+
+# Google Analytics key to enable tracking! (blank to disable)
+google_analytics: "UA-120816434-1"
+
+sass:
+  style: compressed
+
+plugins:
+  - jekyll-sitemap
+  - jekyll-seo-tag
+  - jekyll-avatar
+
+# Template colors, used site-wide via css
+colors:
+  black:     '#111111'
+  white:     '#f8f8f8'
+  blue:      '#29aeb9'
+  green:     '#22C676'
+  purple:    '#c869bf'
+  orange:    '#fab125'
+  turquoise: '#0fbfcf'
+  red:       '#d9534f'
+  grey:      '#343434'
