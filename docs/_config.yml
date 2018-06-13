@@ -13,7 +13,6 @@ highlighter: rouge
 title: "The candy point machine for employees"
 keywords: "electronic, arduino, raspberry, cloud, google, api, python"
 description: "A free and open source electronic lab for construct a candy box with Arduino, Raspberry Pi and Google Cloud Services."
-baseurl: "/candypoint"
 url: "https://intermark-it.github.io/candypoint/"
 author: "acid0 (powered by Intermark IT)"
 source_link: "https://github.com/intermark-it/candypoint/"
