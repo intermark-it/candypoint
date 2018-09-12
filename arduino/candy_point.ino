@@ -69,7 +69,7 @@ bool ready = true; // Bool variable to control when read a new RFID
 bool locked = true; // Bool variable to check is door is closed or open
 
 // Constants 
-const int PHOTOCELL_LEVEL = 5; // Threshold of light below which the servo motor must be operated
+const int PHOTOCELL_LEVEL = 25; // Threshold of light below which the servo motor must be operated
 
 // Functions
 void initDisplay();
