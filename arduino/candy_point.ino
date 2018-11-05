@@ -70,6 +70,7 @@ bool locked = true; // Bool variable to check is door is closed or open
 
 // Constants 
 const int PHOTOCELL_LEVEL = 25; // Threshold of light below which the servo motor must be operated
+const unsigned long WAITING_TIMEOUT = 15000; // Timeout (in milliseconds) for "Waiting" status
 
 // Functions
 void initDisplay();
@@ -199,8 +200,13 @@ void sendRequest(struct Request *request) {
 
 // Get response from Raspberry
 struct Response getResponse(struct Request *request) {
-  // Wait until data available form Raspberry
-  while (Serial.available() == 0) {}
+  // Wait until data is available from Raspberry or timeout occur
+  bool timeout = false;
+  unsigned long previousMillis = millis();
+  while ((Serial.available() == 0) && ((millis() - previousMillis) <= WAITING_TIMEOUT)) {}
+  if ((millis() - previousMillis) > WAITING_TIMEOUT) {
+    timeout = true;
+  }
   // Read and parse JSON response
   Response response;
   response.rfid = "";
@@ -209,18 +215,21 @@ struct Response getResponse(struct Request *request) {
   response.openVault = false;
   response.message = "";
   response.active = false;
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject& root = jsonBuffer.parseObject(Serial);
-  // It's a json object
-  if (root.success()) {
-    if (root["type"] == "response") {
-      if (request->rfid == root["result"]["rfid"].as<String>()) {
-        response.rfid = root["result"]["rfid"].as<String>();
-        response.points = root["result"]["points"].as<int>();
-        response.pin = root["result"]["pin"].as<int>();
-        response.openVault = root["result"]["openVault"].as<bool>();
-        response.message = root["result"]["message"].as<String>();
-        response.active = root["result"]["active"].as<bool>();
+  // Serial data available
+  if (!timeout) {
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& root = jsonBuffer.parseObject(Serial);
+    // It's a json object
+    if (root.success()) {
+      if (root["type"] == "response") {
+        if (request->rfid == root["result"]["rfid"].as<String>()) {
+          response.rfid = root["result"]["rfid"].as<String>();
+          response.points = root["result"]["points"].as<int>();
+          response.pin = root["result"]["pin"].as<int>();
+          response.openVault = root["result"]["openVault"].as<bool>();
+          response.message = root["result"]["message"].as<String>();
+          response.active = root["result"]["active"].as<bool>();
+        }
       }
     }
   }
@@ -251,7 +260,10 @@ void showResponse(struct Response *response) {
         ready = true;
       }
     }
-  } else { 
+  } else {
+    // Display status "Error"
+    displayText("CANDY POINT", "Error");
+    delay(4000);  
     // Change ready state to read a new RFID from Arduino
     ready = true;
   }
